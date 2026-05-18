@@ -1,0 +1,71 @@
+version: '3.9'
+
+services:
+  bot-go:
+    build: .
+    container_name: bot-go
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: go run ./cmd/main.go
+    depends_on:
+      - redis
+      - postgres
+      - ollama
+      - ocr
+    environment:
+      - GO_ENV=development
+    ports:
+      - "8080:8080"
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: cognitive
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  ocr:
+    image: tesseractshadow/tesseract4re
+    container_name: ocr
+    ports:
+      - "5000:5000"
+
+  worker-ai:
+    build: .
+    container_name: worker-ai
+    command: go run ./cmd/worker-ai/main.go
+    depends_on:
+      - ollama
+      - redis
+
+  worker-vision:
+    build: .
+    container_name: worker-vision
+    command: go run ./cmd/worker-vision/main.go
+    depends_on:
+      - ollama
+      - redis
+
+volumes:
+  pgdata:
+  ollama_data:

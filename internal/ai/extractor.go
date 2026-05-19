@@ -10,7 +10,18 @@ import (
 	"sistemaCognitivo/internal/memory"
 )
 
-var hourRegex = regexp.MustCompile(`(?i)(\d{1,2})\s*h`)
+var (
+	hourRegex   = regexp.MustCompile(`(?i)\b(\d{1,2})\s*h\b`)
+	colonRegex  = regexp.MustCompile(`\b(\d{1,2}):(\d{2})\b`)
+	dateDMRegex = regexp.MustCompile(`\b(\d{1,2})/(\d{1,2})\b`)
+	dayRegex    = regexp.MustCompile(`(?i)\bdia\s+(\d{1,2})\b`)
+	spaceRegex  = regexp.MustCompile(`\s+`)
+	leadingJunk = regexp.MustCompile(`^[^\p{L}]+`)
+	trailingJunk = regexp.MustCompile(`[\s\)\]\}\.,;:!\?]+$`)
+)
+
+var ErrNotCommitment = errors.New("mensagem não parece compromisso")
+var ErrNeedsContext = errors.New("compromisso sem contexto suficiente")
 
 var weekdays = map[string]time.Weekday{
 	"domingo": time.Sunday,
@@ -24,48 +35,218 @@ var weekdays = map[string]time.Weekday{
 	"sábado":  time.Saturday,
 }
 
+var commitmentKeywords = []string{
+	"reuniao", "reunião", "consulta", "medico", "médico", "dentista", "compromisso",
+	"agenda", "agendar", "marcar", "marcado", "lembrete", "lembrar", "prazo",
+	"entregar", "apresentar", "pagar", "vencimento", "call", "meet", "entrevista",
+	"finalizar", "terminar", "concluir", "resolver", "enviar", "comprar", "renovar",
+}
+
+var futureIntentKeywords = []string{
+	"amanha", "amanhã", "depois de amanha", "depois de amanhã", "hoje",
+	"vou", "tenho", "preciso", "nao esquecer", "não esquecer", "lembra", "lembrar",
+}
+
+var noisePastKeywords = []string{
+	"acordei", "acabei", "fiz", "fui", "comi", "almocei", "jant", "agora", "kkk",
+}
+
+var noiseChatKeywords = []string{
+	"teste", "caraca", "amor", "dormiu", "oi", "bom dia", "boa tarde", "boa noite",
+}
+
+var actionIntentKeywords = []string{
+	"tenho", "vou", "preciso", "marquei", "agendei", "agendar", "marcar",
+	"lembrar", "lembrete", "nao esquecer", "não esquecer", "compromisso", "consulta", "reuniao", "reunião",
+	"finalizar", "terminar", "concluir", "resolver", "enviar", "comprar", "renovar",
+}
+
 // ExtractTaskFromText faz extracao simples de compromisso em texto livre (MVP).
 func ExtractTaskFromText(message string) (memory.Task, error) {
-	lower := strings.ToLower(strings.TrimSpace(message))
+	normalizedTitle := normalizeTaskTitle(message)
+	lower := strings.ToLower(strings.TrimSpace(normalizedTitle))
 	if lower == "" {
 		return memory.Task{}, errors.New("empty message")
 	}
 
+	if !looksLikeCommitment(lower) {
+		return memory.Task{}, ErrNotCommitment
+	}
+
 	hour := 9
+	minute := 0
 	if match := hourRegex.FindStringSubmatch(lower); len(match) == 2 {
 		_, err := fmt.Sscanf(match[1], "%d", &hour)
 		if err != nil || hour < 0 || hour > 23 {
 			return memory.Task{}, errors.New("invalid hour")
 		}
+	} else if match := colonRegex.FindStringSubmatch(lower); len(match) == 3 {
+		_, err := fmt.Sscanf(match[1], "%d", &hour)
+		if err != nil || hour < 0 || hour > 23 {
+			return memory.Task{}, errors.New("invalid hour")
+		}
+		_, err = fmt.Sscanf(match[2], "%d", &minute)
+		if err != nil || minute < 0 || minute > 59 {
+			return memory.Task{}, errors.New("invalid minute")
+		}
 	}
 
 	now := time.Now()
-	due := time.Date(now.Year(), now.Month(), now.Day(), hour, 0, 0, 0, now.Location())
+	due := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+	hasDateHint := false
 
 	for token, wd := range weekdays {
 		if strings.Contains(lower, token) {
-			due = nextWeekday(now, wd, hour)
+			due = nextWeekday(now, wd, hour, minute)
+			hasDateHint = true
 			break
 		}
 	}
 
 	if strings.Contains(lower, "amanha") || strings.Contains(lower, "amanhã") {
 		t := now.Add(24 * time.Hour)
-		due = time.Date(t.Year(), t.Month(), t.Day(), hour, 0, 0, 0, t.Location())
+		due = time.Date(t.Year(), t.Month(), t.Day(), hour, minute, 0, 0, t.Location())
+		hasDateHint = true
+	}
+
+	if strings.Contains(lower, "depois de amanha") || strings.Contains(lower, "depois de amanhã") {
+		t := now.Add(48 * time.Hour)
+		due = time.Date(t.Year(), t.Month(), t.Day(), hour, minute, 0, 0, t.Location())
+		hasDateHint = true
+	}
+
+	if match := dateDMRegex.FindStringSubmatch(lower); len(match) == 3 {
+		var day, month int
+		if _, err := fmt.Sscanf(match[1], "%d", &day); err == nil {
+			if _, err := fmt.Sscanf(match[2], "%d", &month); err == nil {
+				candidate := time.Date(now.Year(), time.Month(month), day, hour, minute, 0, 0, now.Location())
+				if candidate.Before(now) {
+					candidate = candidate.AddDate(1, 0, 0)
+				}
+				due = candidate
+				hasDateHint = true
+			}
+		}
+	}
+
+	if match := dayRegex.FindStringSubmatch(lower); len(match) == 2 {
+		var day int
+		if _, err := fmt.Sscanf(match[1], "%d", &day); err == nil && day >= 1 && day <= 31 {
+			candidate := time.Date(now.Year(), now.Month(), day, hour, minute, 0, 0, now.Location())
+			if candidate.Before(now) {
+				candidate = candidate.AddDate(0, 1, 0)
+			}
+			due = candidate
+			hasDateHint = true
+		}
+	}
+
+	if strings.Contains(lower, "hoje") {
+		due = time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+		hasDateHint = true
+	}
+
+	if !hasDateHint {
+		return memory.Task{}, ErrNotCommitment
 	}
 
 	if due.Before(now) {
 		due = due.Add(24 * time.Hour)
 	}
 
-	return memory.Task{Title: message, DueAt: due}, nil
+	if lacksContext(normalizedTitle) {
+		return memory.Task{}, ErrNeedsContext
+	}
+
+	return memory.Task{Title: normalizedTitle, DueAt: due}, nil
 }
 
-func nextWeekday(now time.Time, wd time.Weekday, hour int) time.Time {
+func lacksContext(title string) bool {
+	lower := strings.ToLower(strings.TrimSpace(title))
+	if lower == "" {
+		return true
+	}
+
+	hasGenericTopic := hasAny(lower, []string{"reuniao", "reunião", "consulta", "compromisso", "call", "meet"})
+	hasDetailMarker := hasAny(lower, []string{" com ", " sobre ", " no ", " na ", " em ", " para ", " com o ", " com a "})
+	wordCount := len(strings.Fields(lower))
+
+	// Ex.: "Reunião hoje 15h" deve ser rejeitado por falta de assunto/local.
+	return hasGenericTopic && !hasDetailMarker && wordCount <= 4
+}
+
+func normalizeTaskTitle(message string) string {
+	normalized := strings.TrimSpace(message)
+	normalized = spaceRegex.ReplaceAllString(normalized, " ")
+	normalized = leadingJunk.ReplaceAllString(normalized, "")
+	normalized = trailingJunk.ReplaceAllString(normalized, "")
+	normalized = strings.TrimSpace(normalized)
+	return normalized
+}
+
+func looksLikeCommitment(lower string) bool {
+	score := 0
+
+	hasTemporal := hasAny(lower, []string{
+		"amanha", "amanhã", "depois de amanha", "depois de amanhã", "hoje",
+		"segunda", "terça", "terca", "quarta", "quinta", "sexta", "sabado", "sábado", "domingo",
+	}) || hourRegex.MatchString(lower) || colonRegex.MatchString(lower) || dateDMRegex.MatchString(lower) || dayRegex.MatchString(lower)
+
+	if hasTemporal {
+		score += 3
+	}
+
+	if hasAny(lower, commitmentKeywords) {
+		score += 3
+	}
+
+	if hasAny(lower, futureIntentKeywords) {
+		score += 2
+	}
+
+	hasActionIntent := hasAny(lower, actionIntentKeywords)
+	if hasActionIntent {
+		score += 2
+	}
+
+	if hasAny(lower, noisePastKeywords) && !hasTemporal {
+		score -= 4
+	}
+
+	if hasAny(lower, noiseChatKeywords) {
+		score -= 4
+	}
+
+	if len(strings.Fields(lower)) < 3 && !hasTemporal {
+		score -= 2
+	}
+
+	if len(lower) > 120 && !hasAny(lower, commitmentKeywords) {
+		score -= 3
+	}
+
+	// Regras de segurança para evitar lixo:
+	// 1) precisa sinal temporal
+	// 2) precisa intenção explícita (ação) ou palavra forte de compromisso
+	// 3) score mínimo
+	hasStrongCommitment := hasAny(lower, commitmentKeywords)
+	return hasTemporal && (hasActionIntent || hasStrongCommitment) && score >= 6
+}
+
+func hasAny(text string, keywords []string) bool {
+	for _, kw := range keywords {
+		if strings.Contains(text, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+func nextWeekday(now time.Time, wd time.Weekday, hour, minute int) time.Time {
 	days := (int(wd) - int(now.Weekday()) + 7) % 7
 	if days == 0 {
 		days = 7
 	}
 	t := now.AddDate(0, 0, days)
-	return time.Date(t.Year(), t.Month(), t.Day(), hour, 0, 0, 0, t.Location())
+	return time.Date(t.Year(), t.Month(), t.Day(), hour, minute, 0, 0, t.Location())
 }

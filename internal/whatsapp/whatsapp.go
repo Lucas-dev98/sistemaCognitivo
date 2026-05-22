@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	qrterminal "github.com/mdp/qrterminal/v3"
 	qrcode "github.com/skip2/go-qrcode"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
@@ -19,14 +20,13 @@ import (
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
-	qrterminal "github.com/mdp/qrterminal/v3"
 	"google.golang.org/protobuf/proto"
 
 	_ "modernc.org/sqlite"
 )
 
 var (
-	taskStore   *memory.Store
+	taskStore   memory.TaskStore
 	client      *whatsmeow.Client
 	mu          sync.RWMutex
 	connected   bool
@@ -36,7 +36,7 @@ var (
 )
 
 // Init inicializa o módulo WhatsApp
-func Init(store *memory.Store) error {
+func Init(store memory.TaskStore) error {
 	taskStore = store
 
 	ctx := context.Background()
@@ -212,9 +212,9 @@ func GetStatus() map[string]interface{} {
 	defer mu.RUnlock()
 
 	return map[string]interface{}{
-		"connected": connected,
-		"client":    client != nil,
-		"mode":      mode,
+		"connected":   connected,
+		"client":      client != nil,
+		"mode":        mode,
 		"group_found": groupLoaded,
 	}
 }
@@ -283,7 +283,7 @@ func findGroupByName(ctx context.Context, name string) {
 // SendToGroup envia mensagem para o grupo "just do it" com retry automático
 func SendToGroup(ctx context.Context, message string) error {
 	fmt.Printf("[WHATSAPP] SendToGroup called with message (first 50 chars): %.50s\n", message)
-	
+
 	mu.RLock()
 	if !groupLoaded || groupID.IsEmpty() {
 		mu.RUnlock()
@@ -315,7 +315,7 @@ func SendToGroup(ctx context.Context, message string) error {
 	for i, delay := range delays {
 		connected := client.IsConnected()
 		fmt.Printf("[WHATSAPP] Attempt %d/5: connected=%v\n", i+1, connected)
-		
+
 		if !connected {
 			fmt.Printf("[WHATSAPP] ⏳ Waiting for reconnection... (delay: %v)\n", delay)
 			time.Sleep(delay)

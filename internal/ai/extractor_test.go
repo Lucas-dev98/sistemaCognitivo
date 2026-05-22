@@ -8,12 +8,13 @@ import (
 
 func TestExtractTaskFromText_CommitmentFiltering(t *testing.T) {
 	tests := []struct {
-		name       string
-		msg        string
-		shouldPass bool
+		name        string
+		msg         string
+		shouldPass  bool
 		expectedErr error
 	}{
 		{name: "valid commitment with weekday", msg: "Reuniao com cliente sexta 9h", shouldPass: true},
+		{name: "valid imperative task today", msg: "Fazer um bolo hoje", shouldPass: true},
 		{name: "valid reminder", msg: "Lembrete pagar boleto amanha 10h", shouldPass: true},
 		{name: "valid future intent", msg: "Vou ao dentista sexta 9h", shouldPass: true},
 		{name: "valid imperative with weekday and day", msg: "9Finalizar estoque até quinta feira dia 21)", shouldPass: true},
@@ -21,6 +22,7 @@ func TestExtractTaskFromText_CommitmentFiltering(t *testing.T) {
 		{name: "daily chatter", msg: "acordei agora", shouldPass: false, expectedErr: ErrNotCommitment},
 		{name: "chat with temporal but no intent", msg: "caraca amor dormiu em sexta 9h", shouldPass: false, expectedErr: ErrNotCommitment},
 		{name: "test phrase should be ignored", msg: "Teste lembrete sexta 9h", shouldPass: false, expectedErr: ErrNotCommitment},
+		{name: "refusal with logistics should be ignored", msg: "Tia infelizmente não vai dar pra levar Alfredo amanhã não, oq eu consigo é encontrar vcs aqui no centro de vitoria pra entregar a roupinha cirúrgica", shouldPass: false, expectedErr: ErrNotCommitment},
 		{name: "long context without schedule", msg: "Gerência Geral de Inovação. Temos várias frentes diferentes aqui na GG. Eu sou da VSI (Validação de Soluções de Inovação).", shouldPass: false, expectedErr: ErrNotCommitment},
 		{name: "generic meeting without context", msg: "Reuniao hoje 15h", shouldPass: false, expectedErr: ErrNeedsContext},
 	}

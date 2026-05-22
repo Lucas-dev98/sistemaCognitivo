@@ -6,7 +6,8 @@
 *.out
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/tasks.json
 .idea/
 *.swp
 
@@ -16,3 +17,11 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Local data
+/whatsapp_data/
+/scripts/second-brain/
+/second-brain/00-Inbox/Chat - *.md
+/second-brain/00-Inbox/Chat Index.md
+/second-brain/99-Archive/copilot-transcripts/*.jsonl
+!/second-brain/99-Archive/copilot-transcripts/.gitkeep

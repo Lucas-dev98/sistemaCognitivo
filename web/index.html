@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Cognitivo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Assistente Cognitivo</p>
+      <h1>Controle das tarefas e lembretes em tempo real</h1>
+      <p class="subtitle">Acompanhe captura de mensagens, conexão WhatsApp e proximidade dos prazos.</p>
+    </div>
+    <button id="refreshBtn" class="button secondary">Atualizar agora</button>
+  </header>
+
+  <main class="layout">
+    <section class="panel ingest-panel">
+      <h2>Nova tarefa via WhatsApp</h2>
+      <form id="ingestForm">
+        <label for="message">Mensagem</label>
+        <textarea id="message" name="message" rows="4" placeholder="Ex.: Reunião com equipe comercial na sala 2 hoje 15h" required></textarea>
+        <div class="form-row">
+          <button type="submit" class="button">Enviar</button>
+          <span id="formFeedback" class="feedback" aria-live="polite"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel semantic-panel">
+      <div class="panel-head">
+        <h2>Pré-análise semântica</h2>
+        <small id="semanticState">aguardando texto</small>
+      </div>
+      <div class="semantic-result" id="semanticResult">
+        Digite uma mensagem para ver a leitura semântica em tempo real.
+      </div>
+      <ul class="semantic-notes" id="semanticNotes"></ul>
+    </section>
+
+    <section class="panel status-panel">
+      <h2>Status do sistema</h2>
+      <div class="status-grid">
+        <div class="status-item">
+          <span>WhatsApp</span>
+          <strong id="waStatus">-</strong>
+        </div>
+        <div class="status-item">
+          <span>Grupo</span>
+          <strong id="groupStatus">-</strong>
+        </div>
+        <div class="status-item">
+          <span>Modo</span>
+          <strong id="modeStatus">-</strong>
+        </div>
+        <div class="status-item">
+          <span>Banco</span>
+          <strong id="dbStatus">-</strong>
+        </div>
+        <div class="status-item">
+          <span>Persistência</span>
+          <strong id="persistStatus">-</strong>
+        </div>
+        <div class="status-item">
+          <span>Última atualização</span>
+          <strong id="lastUpdate">-</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel metrics-panel">
+      <h2>Métricas</h2>
+      <div class="metrics-grid">
+        <article>
+          <p>Total</p>
+          <h3 id="metricTotal">0</h3>
+        </article>
+        <article>
+          <p>Pendentes</p>
+          <h3 id="metricPending">0</h3>
+        </article>
+        <article>
+          <p>Próximas 24h</p>
+          <h3 id="metricSoon">0</h3>
+        </article>
+        <article>
+          <p>Lembretes enviados</p>
+          <h3 id="metricReminded">0</h3>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel tasks-panel">
+      <div class="panel-head">
+        <h2>Tarefas</h2>
+        <small id="taskCount">0 itens</small>
+      </div>
+      <ul id="taskList" class="task-list"></ul>
+    </section>
+
+    <section class="panel logs-panel">
+      <div class="panel-head">
+        <h2>Eventos da interface</h2>
+        <small>cliente web</small>
+      </div>
+      <ul id="eventList" class="event-list"></ul>
+    </section>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

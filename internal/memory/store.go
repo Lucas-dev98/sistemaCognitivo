@@ -15,6 +15,26 @@ type Task struct {
 	Reminded bool      `json:"reminded"`
 }
 
+// TaskStore define operações de persistência de tarefas.
+type TaskStore interface {
+	Add(task Task) Task
+	List() []Task
+	MarkReminded(id int)
+}
+
+// StoreHealth representa o estado do backend de persistencia de tarefas.
+type StoreHealth struct {
+	Backend   string `json:"backend"`
+	Persisted bool   `json:"persisted"`
+	Healthy   bool   `json:"healthy"`
+	Error     string `json:"error,omitempty"`
+}
+
+// HealthAwareStore expõe estado operacional do backend de tarefas.
+type HealthAwareStore interface {
+	HealthStatus() StoreHealth
+}
+
 // Store e um armazenamento em memoria para o MVP.
 type Store struct {
 	mu     sync.RWMutex
@@ -55,5 +75,13 @@ func (s *Store) MarkReminded(id int) {
 			s.tasks[i].Reminded = true
 			return
 		}
+	}
+}
+
+func (s *Store) HealthStatus() StoreHealth {
+	return StoreHealth{
+		Backend:   "memory",
+		Persisted: false,
+		Healthy:   true,
 	}
 }

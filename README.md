@@ -166,6 +166,21 @@ Resposta automática:
 - [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md) - Guia completo de integração WhatsApp
 - [docker-compose.yml](docker-compose.yml) - Configuração de containers
 - [go.mod](go.mod) - Dependências do projeto
+- [second-brain/README.md](second-brain/README.md) - Vault Obsidian (segundo cerebro do projeto)
+
+## 🧠 Segundo Cérebro (Obsidian)
+
+Este projeto inclui um vault Obsidian em `second-brain/` para manter contexto permanente de chat e decisões.
+
+Sincronizar transcript mais recente do Copilot para o vault:
+
+```powershell
+./scripts/sync-copilot-chat-to-obsidian.ps1
+```
+
+Isso gera:
+- Nota Markdown por sessão em `second-brain/00-Inbox/`
+- Arquivo bruto `.jsonl` em `second-brain/99-Archive/copilot-transcripts/`
 
 ## 🚨 Troubleshooting
 

@@ -1,0 +1,46 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run MVP API",
+			"type": "shell",
+			"command": "C:\\Program Files\\Go\\bin\\go.exe",
+			"args": [
+				"run",
+				"./cmd/main.go"
+			],
+			"isBackground": true,
+			"group": "build"
+		},
+		{
+			"label": "Second Brain: Sync Copilot Chat",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"./scripts/sync-copilot-chat-to-obsidian.ps1"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Second Brain: Open Vault Folder",
+			"type": "shell",
+			"command": "explorer",
+			"args": [
+				"./second-brain"
+			]
+		},
+		{
+			"label": "Second Brain: Sync + Open Vault",
+			"dependsOn": [
+				"Second Brain: Sync Copilot Chat",
+				"Second Brain: Open Vault Folder"
+			],
+			"dependsOrder": "sequence",
+			"group": "build",
+			"problemMatcher": []
+		}
+	]
+}
